@@ -1,0 +1,100 @@
+install.packages("twitteR")
+library(twitteR)
+install.packages("ROAuth")
+library(ROAuth)
+install.packages("httpuv")
+library(httpuv)
+install.packages("base64enc")
+library(base64enc)
+cred <- OAuthFactory$new(consumerKey='FXTquJNbgDG2dH81XYVqNZFAb', # Consumer Key (API Key)
+                         consumerSecret='3y0ALNFzJ8JKyxzFd0ba9FWSUpNSWhPisEIZOB6WCTtcGvP6SO', #Consumer Secret (API Secret)
+                         requestURL='https://api.twitter.com/oauth/request_token',
+                         accessURL='https://api.twitter.com/oauth/access_token',
+                         authURL='https://api.twitter.com/oauth/authorize')
+save(cred, file="twitter authentication.Rdata")
+load("twitter authentication.Rdata")
+setup_twitter_oauth("FXTquJNbgDG2dH81XYVqNZFAb",
+                    "3y0ALNFzJ8JKyxzFd0ba9FWSUpNSWhPisEIZOB6WCTtcGvP6SO", 
+                    "529590041-qOXLd769cQEUTbXg3iRqCd33pC1K6xoORrGOMJDh", 
+                    "WlqZJwXFQzf64IuojkbKh1jdT5cnSY8U44pqmz6Sc1d4A")  
+#############Twitter extraction######################
+tweets_ext <-userTimeline("iamsrk",n=1000)
+tweets_df <- twListToDF(tweets_ext)
+write.csv(tweets_df,"iamsrk.csv")
+getwd()
+install.packages("tm")
+library(tm)
+install.packages("wordcloud")
+library(wordcloud)
+install.packages("topicmodels")
+library(topicmodels)
+library(RColorBrewer)
+text <- read.csv("File.choose()")
+View(text)
+document <- Corpus(VectorSource(text$text))
+inspect(document[10])
+-------------------Function to clean the corpus--------------------------
+  mydata.corpus <- Corpus(VectorSource(document))
+mydata.corpus <- tm_map(mydata.corpus, removePunctuation)
+my_stopwords <- c(stopwords('english'),"brothers", "sisters", "the", "due", "are", "not", "for", "this", "and",  "that", "there", "new", "near", "beyond", "time", "from", "been", "both", "than",  "has","now", "until", "all", "use", "two", "ave", "blvd", "east", "between", "end", "have", "avenue", "before",    "just", "mac", "being",  "when","levels","remaining","based", "still", "off", "over", "only", "north", "past", "twin", "while","then")
+mydata.corpus <- tm_map(mydata.corpus, removeWords, my_stopwords)
+mydata.corpus <- tm_map(mydata.corpus, removeNumbers)
+mydata.corpus <- tm_map(mydata.corpus, stripWhitespace)
+inspect(document[[10]])
+-------------------------Document term matrix----------------------
+  doctm <- TermDocumentMatrix(document)
+dim(doctm)
+ctdm <- as.DocumentTermMatrix(doctm)
+rowtotals <- apply(ctdm,1,sum)
+ctdm.new <- ctdm[rowtotals>0,]
+lda <- LDA(ctdm.new,10)
+terms <- terms(lda,5)
+terms
+topic <- terms(lda)
+tab <- table(names(topic),unlist(topic))
+head(tab)
+library(cluster)
+library(dendextend)
+cluster <- hclust(dist(tab),method = "ward.D2")
+col_bran <- color_branches(cluster,k=3)
+plot(col_bran)
+plot(cluster)
+------------------------NLP------------------------------
+  install.packages("textcat")
+library(textcat)
+table(textcat(document))
+consider <- c(which(textcat(document)=="english"))
+documen2 <- document[consider]
+documen3 <- as.character(documen2)
+library(syuzhet)
+SRK_tweets <- get_sentences(documen3)
+-----------------------Sentimental analysis-------------------------------
+  sentiment_vector <- get_sentiment(SRK_tweets, method = "bing")
+head(sentiment_vector)
+afinn_SRK_tweets <- get_sentiment(SRK_tweets, method = "afinn")
+head(afinn_SRK_tweets)
+nrc_data <- get_nrc_sentiment(documen3)
+head(nrc_data)
+sum(sentiment_vector)
+mean(sentiment_vector)
+summary(sentiment_vector)
+plot(sentiment_vector, type = "l", main = "Plot Trajectory",
+     xlab = "Narrative Time", ylab = "Emotional Valence")
+abline(h = 0, col = "red")
+nrc_data <- get_nrc_sentiment(SRK_tweets)
+barplot(sort(colSums(prop.table(nrc_data[, 1:10]))), horiz = T, cex.names = 0.7,
+        las = 1, main = "Emotions", xlab = "Percentage",
+        col = 1:8)
+-----------------------Wordcloud-----------------------------------
+  freq <- rowSums(as.matrix(doctm))
+length(freq)
+ord <- order(freq,decreasing = TRUE)
+freq[head(ord)]
+freq[tail(ord)]
+df <- data.frame(word =names(freq),freq = freq)
+windows()
+wordcloud(words = df$word,freq = df$freq,min.freq = 3,max.words = 100,random.order = F,col = brewer.pal(8,"Dark2"))
+findFreqTerms(doctm,lowfreq = 8)
+findAssocs(doctm,terms ="happiness",corlimit =0.3)
+head(df,10)
+barplot(df[1:10,]$freq,names.arg = df[1:10,]$word,col="forestgreen",main= "most used terms",ylab ="word frequency")
